@@ -1,5 +1,5 @@
 FullClass
-	= terms: Term* {
+    = terms: Term* {
   		return {
 			type:'smali',
 			terms:terms.filter(term=>term.EMPTY!==null)
@@ -68,7 +68,8 @@ PartList
 	}
 
 // Annotation
-AnnotationStart = ".annotation" _ annotationType:AnnotationType _ annotatorClass:Class {
+AnnotationStart
+	= ".annotation" _ annotationType:AnnotationType _ annotatorClass:Class {
 		return {
 			annotationType,
 			annotatorClass
@@ -101,13 +102,16 @@ Annotation
 		return res;
 	}
 
-AnnotationType = "runtime"/"system"
+AnnotationType
+	= "runtime"
+	/ "system"
 
 // Field
 FieldName
 	= value:([a-zA-Z_])+ {
 		return value.join('')
 	}
+
 FieldStart
 	= ".field" _ visiblity:VisiblityList fieldName:FieldName ":" Type {
 		return{
@@ -142,7 +146,6 @@ Field
 		Object.assign(res,start);
 		return res;
 	}
-
 
 /*
 	V	void - can only be used for return types

@@ -1,0 +1,414 @@
+FullClass
+    = terms: Term* {
+  	    return {
+    	    type:'smali',
+            terms:terms.filter(term=>term.EMPTY!==null)
+        }
+    }
+
+Term
+    = Directive
+    / Comment
+    / _
+
+Declaration
+    = "class"
+    / "super"
+    / "source"
+    / "registers"
+    / "locals"
+    / "prologue"
+    / "line"
+    / "local"
+
+String
+    = "\"" value:([^"])+ "\"" {
+        return {
+	        type:'stringLiteral',
+    	    value:value.join('')
+        }
+    }
+
+Integer
+	= value:([1-9]+ [0-9]*) {
+    	return {
+            type:'integerLiteral',
+            integerBase:10,
+            value:parseInt(value.reduce((a,b)=>[...a,...b]).join(''),10)
+        }
+    }
+    / minus:"-"? "0x" value:[0-9a-fA-F]+ {
+    	value=parseInt(value.join(''),16);
+        if(minus)
+        	value=-value;
+    	return {
+            type:'integerLiteral',
+            integerBase:16,
+            value
+        }
+    }
+
+Null
+	= "null" {
+    	return {
+        	type:'null'
+        }
+    }
+
+Part
+    = LocalVariableDeclaration
+    / Class
+    / String
+    / Integer
+    / Null
+
+PartList
+    = vis:(Part _*)* {
+        return vis.map(v=>v[0])
+    }
+
+// Annotation
+AnnotationStart = ".annotation" _ annotationType:AnnotationType _ annotatorClass:Class {
+	    return {
+    	    annotationType,
+    	    annotatorClass
+        }
+    }
+
+AnnotationEnd
+    = ".end" _ "annotation"
+
+AnnotationValue
+	= key:FieldName _ "=" _ value:Part {
+        return {
+        	type:'annotationValue',
+            key:key,
+            value
+        }
+    }
+AnnotationValueList
+	= val:(AnnotationValue _*)* {
+	    return val.map(v=>v[0])
+	}
+
+Annotation
+    = start:AnnotationStart _+ values:AnnotationValueList AnnotationEnd {
+  	    let res={
+    	    type:'annotation',
+            values
+	    }
+        Object.assign(res,start);
+        return res;
+    }
+
+AnnotationType = "runtime"/"system"
+
+// Field
+FieldName
+    = value:([a-zA-Z_])+ {
+        return value.join('')
+    }
+FieldStart
+    = ".field" _ visiblity:VisiblityList fieldName:FieldName ":" Type {
+	    return{
+    	    visiblity,
+            fieldName
+        }
+    }
+FieldEnd
+    = ".end" _ "field"
+
+FieldValue
+    = Directive
+
+FieldValueList
+	= val:(FieldValue _*)* {return val.map(v=>v[0])}
+
+Field
+    = start:FieldStart _ children:FieldValueList FieldEnd {
+  	    let res={
+    	    type:'field',
+            fieldType:'undeclared',
+            children
+	    }
+        Object.assign(res,start);
+        return res;
+    }
+    / start:FieldStart _ "=" _ Part {
+  	    let res={
+    	    type:'field',
+            fieldType:'declared'
+	    }
+        Object.assign(res,start);
+        return res;
+    }
+
+
+/*
+    V	void - can only be used for return types
+    Z	boolean
+    B	byte
+    S	short
+    C	char
+    I	int
+    J	long (64 bits)
+    F	float
+    D	double (64 bits)
+*/
+Type
+	= "V" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'void'
+        }
+    }
+    / "I" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'int'
+        }
+    }
+    / "S" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'short'
+        }
+    }
+    / "F" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'float'
+        }
+    }
+    / "Z" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'boolean'
+        }
+    }
+    / "J" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'long'
+        }
+    }
+    / "D" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'double'
+        }
+    }
+    / "C" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'char'
+        }
+    }
+    / "B" {
+    	return {
+            type:'className',
+            classType:'native',
+            name:'byte'
+        }
+    }
+    / Class
+
+ArrayType
+	= array:"["* type:Type {
+    	return {
+        	type:'arrayType',
+            length:array.length,
+            type
+        }
+    }
+
+// Method
+Label
+	= ":" labelName:[a-z_0-9]+ {
+    	return {
+        	type:'label',
+            labelName: labelName.join('')
+        }
+    }
+
+Register
+	= "p" id:[0-9]+ {
+    	return {
+        	type:'register',
+           	registerType:'p',
+            id:parseInt(id.join(''),10)
+        }
+    }
+    / "v" id:[0-9]+ {
+    	return {
+        	type:'register',
+           	registerType:'v',
+            id:parseInt(id.join(''),10)
+        }
+    }
+
+RegisterList
+	= "{" registers:(Register ("," _?)?)* "}" {
+    	return {
+        	type:'registerList',
+            registers: registers.map(e=>e[0])
+        }
+    }
+
+FieldReferenceCall = targetName:MethodName {
+	return {
+    	type:'fieldCallReference',
+        targetName
+    }
+}
+FieldReferenceReadWrite = targetName:FieldName ":" {
+	return {
+    	type:'fieldReferenceReadWrite',
+        targetName
+    }
+}
+FieldReference
+	= targetClass:Class "->" ref:FieldReferenceCall {
+		let res={
+        	targetClass
+        }
+        Object.assign(res,ref);
+        return res;
+  	}
+    / targetClass:Class "->" ref:FieldReferenceReadWrite {
+    	let res={
+        	targetClass
+        }
+        Object.assign(res,ref);
+        return res;
+    }
+
+LocalVariableDeclaration
+	= name:String ":" variableType:Type{
+    	return {
+        	type: 'localVariableDeclaration',
+            name: name,
+            variableType
+        }
+    }
+
+MethodOperationPart
+	= RegisterList/Register/FieldReference/Part/Label
+
+MethodOperationPartList
+	= argumentList:(MethodOperationPart ("," _)*)* {
+		return {
+        	type:'methodArgumentList',
+            argumentList:argumentList.map(arg=>arg[0])
+        }
+	}
+
+MethodOperation
+	= opName:[a-zA-Z-/0-9]+ _ argumentList:MethodOperationPartList {
+    	return {
+        	type:'methodOperation',
+            opName:opName.join(''),
+            argumentList
+        }
+    }
+
+MethodName
+	= isInternal:"<"? name:[a-zA-Z_]+ ">"? "(" argumentList:ArrayType* ")" returnType:ArrayType {
+		return {
+        	name:name.join(''),
+            internal:isInternal===null?false:true,
+            argumentList,
+            returnType
+        }
+	}
+
+MethodStart
+	= ".method" _ visiblity:VisiblityList name:MethodName {
+		return {
+        	visiblity,
+            name
+        }
+	}
+
+MethodEnd
+    = ".end" _ "method"
+
+MethodValue
+    = MethodOperation
+    / Term
+    / Label
+
+Method
+  	= start: MethodStart _+ body:(MethodValue _?)* MethodEnd {
+        let res={
+            type:'method',
+            body: body.map(e=>e[0])
+        }
+        Object.assign(res,start);
+        return res
+	}
+
+Comment
+    = "#" text:[^\n]+ {return {
+        type:'comment',
+        value: text.join('').trim()
+    }}
+
+Directive
+    = Annotation
+    / Field
+    / Method
+    / "." directiveType:Declaration _ visiblity:VisiblityList? args:PartList? {
+        return {
+  	        type: "directive",
+            directiveType,
+            args,
+            visiblity
+        }
+    }
+
+
+Class
+    = "L" name:[a-zA-Z/_а-яА-Я]+ ";" {
+        return {
+  	        type:'className',
+            classType:'object',
+  	        name:name.join('')
+        }
+    }
+
+ClassList = (Class ("," _)*)*
+
+Visiblity
+    = "public" {return text()}
+    / "private" {return text()}
+    / "protected" {return text()}
+    / "abstract" {return text()}
+    / "static" {return text()}
+    / "constructor" {return text()}
+    / "final" {return text()}
+    / "native" {return text()}
+    / "bridge" {return text()}
+    / "synthetic" {return text()}
+    / "varargs" {return text()}
+    / "declared-synchronized" {return text()}
+
+VisiblityList
+    = vis:(Visiblity _*)* {
+        return vis.map(v=>v[0])
+    }
+
+_
+    = [ \t\n\r]+ {
+        return {
+            'EMPTY':null
+        }
+    }

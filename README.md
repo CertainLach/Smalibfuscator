@@ -1,15 +1,16 @@
 # Smalibfuscator
-Smali obfuscator
-> Work in progress, will eat your cat!
+Smali and jasmin obfuscator
+
+Disassembles .jar/.dex, rewrites .j/.smali, assembles back
 
 ## Parts
-- parser (Written in Node.JS (+PEG))
+- parser (Open source, in this repo. Written in Node.JS (+PEG))
     - Parses .smali
     - Writes .json
-- processor (Written in Python)
+- processors (Closed source. Modular, written in Node.JS / Python / Java)
     - Parses .json
     - Applying obfuscation
     - Writes .json
-- compiler (Written in Node.JS)
+- compiler (Closed source. Written in Node.JS)
     - Parses .json
     - Writes .smali

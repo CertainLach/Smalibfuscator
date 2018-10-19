@@ -1,5 +1,5 @@
 FullClass
-    = terms: ClassTerm* {
+	= terms: ClassTerm* {
   		return {
 			type:'smali',
 			terms:terms.filter(term=>term.EMPTY!==null)
@@ -23,7 +23,9 @@ Declaration
 	/ "locals"
 	/ "prologue"
 	/ "line"
-	/ "local"
+
+LocalDeclaration
+	= "local"
 
 String
 	= "\"" value:([^"])+ "\"" {
@@ -375,6 +377,15 @@ Directive
 	= Annotation
 	/ Field
 	/ Method
+	/ "." directiveType:LocalDeclaration _ reg:Register "," _ name:[a-zA-Z_]+ ":" cl:Class {
+		return {
+			type: "directive",
+			directiveType,
+			reg,
+			name: name.join(''),
+			cl
+		}
+	}
 	/ "." directiveType:Declaration _ visiblity:VisiblityList? args:PartList? {
 		return {
   			type: "directive",
